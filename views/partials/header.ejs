@@ -33,7 +33,8 @@
                         </div>
                     </li>
                 <% }else{ %>
-                    <li><a href="/usuario/login" target="_blank">Log In</a></li>
+                    <%# // quite el target blank %> 
+                    <li><a href="/usuario/login">Log In</a></li>
                 <% } %>
                 <li>
                     <form action="/productos/buscar" method="GET">

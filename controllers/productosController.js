@@ -1,147 +1,166 @@
-const db =require('../database/models');
-const Sequelize = require('sequelize');
-const {log}=require('debug');
-const {Op} = require('sequelize');
+const db = require('../database/models');
+const {Sequelize} = require('sequelize');
+const { log } = require('debug');
+const op = db.Sequelize.Op;
 
-module.exports={
-    detalle:function(req,res){
+module.exports = {
+    detalle: function (req,res) {
         let id = req.params.id;
-        db.Producto.findByPk(id,{
-            include :[{all:true , nested : true}]
+        db.Producto.findByPk(id, {
+           include: [{all: true, nested: true}]
         })
-        .then(function(unProducto){
-            res.resnde('detalle',{unProducto : unProducto, title: unProducto.nombre})
+        .then(function (unProducto) {
+            res.render('detalle',{ unProducto: unProducto, title: unProducto.nombre })
         })
     },
-    porCategoria: function(req,res){
+
+    porCategoria: function (req,res) {
         let categoria = req.params.laCategoria;
         db.Producto.findAll({
-            where:{
+            where: {
                 categoria_id: categoria
             },
-            include:[{
+            include: [{
                 association: 'categorias'
             }]
-        })
-        .then(function (resultado){
-            res.render('porCategoria',{resultado: resultado , title:resultado[0].categorias.nopmbre})
+        })  
+        .then(function (resultado) {
+            res.render('porCategoria', { resultado: resultado, title: resultado[0].categorias.nombre })
         })
     },
-    buscar: function (req,res){
+
+    //configuro buscador
+    buscar: function (req,res) {
         db.Producto.findAll({
-            where:{
-                nombre:{
-                    [Op.link]:`%${req.query.bsquedad}`
-                }
-            }
-        })
-        .then(resultado=>{
-            return res.render('resultadoBusqueda',{
-                resultado
-            }).catch(error=>res.send(error))
-        })
+			where : {
+				nombre : {
+					[op.like] : `%${req.query.busqueda}%`
+				}
+			}
+		
+		})
+		.then(resultados => {
+			return res.render('resultadoBusqueda',{
+				resultados,
+                buscar: req.query.busqueda
+			})
+		})
+      
     },
-    agregarComentario: function(req,res){
-        if(req.session.usuarioLogeado == undefined){
-            res.redirect("/")
+
+    agregarComentario: function (req,res) {
+        if (req.session.usuarioLogueado == undefined) {
+            res.redirect("/");
         }
         let idProducto = req.params.id;
         let idUsuario = req.session.usuarioLogueado.id;
-        
-        db.comentario.create({
+
+        db.Comentario.create({
             texto_comentario: req.body.texto_comentario,
             calificacion: req.body.calificacion,
-            usuario_id:idUsuario,
-            producto_id:idProducto
+            usuario_id: idUsuario,
+            producto_id: idProducto
         })
-        .then(function(){
-            res.redirect('/productos/detalle'+idProducto)
+        .then(function () {
+            res.redirect('/productos/detalle/'+idProducto)
         })
     },
-    agregarProducto: function(req,res){
-        if(req.session.usuarioLogueado == undefined){
-            res.redirect("/")
-        }
-        res.render('agregarProducto',{title: 'Agregar Producto'});
-    },
-    productoSubmit:function(req,res){
-        if(req.session.usuarioLogueado == undefined){
+
+    agregarProducto: function (req, res){
+        if (req.session.usuarioLogueado == undefined) {
             res.redirect("/");
         }
-        const{nombre,marca,imagen,precio,categoria}= req.body;
-        db.Producto.create({
-            nombre:nombre,
-            marca:marca,
-            img_url:imagen,
-            precio: +precio,
-            categoria_id : +categoria,
-            usuario_id: req.session.usuarioLogueado.id
-        })
-        .then(function (){
-            return res.redirect('/')
-        })
-        .catch(error=> res.send(error))
+        res.render('agregarProducto', { title: 'Agregar Producto'});
     },
-    misProductos: function(req,res){
-        if(req.session.usuarioLogueado == undefined){
-            res.redirect("/")
+       
+
+    productoSubmit: function (req,res) {
+        if (req.session.usuarioLogueado == undefined) {
+            res.redirect("/");
         }
+       
+         //configuro agregar productos
+         const {nombre, marca, imagen, precio, categoria} = req.body;
+         db.Producto.create({
+             nombre: nombre,
+             marca: marca,
+             img_url: imagen,
+             precio: +precio,
+             categoria_id: +categoria
+         })
+         .then(() =>{
+             return res.redirect('/')
+         })
+
+    },
+
+    misProductos: function (req, res) {
+        if (req.session.usuarioLogueado == undefined) {
+            res.redirect("/");
+        }
+
         db.Producto.findAll(
             {
-                where:{usuario_id: req.session.usuarioLogueado.id},
-                order:[['updatedAt', 'DESC']]
-            }
+            where: {usuario_id: req.session.usuarioLogueado.id},
+            order: [['updatedAt', 'DESC']]
+        }
         )
-        .then(function(productos){
-            res.render('misProductos', {productos:productos, title:'Mis productos'})
+        .then(function (productos) {
+            res.render('misProductos', {productos: productos, title: 'Mis productos'})
         })
     },
-    editarProducto: function(req,res){
-        if(req.session.usuarioLogueado == undefined){
+
+    editarProducto: function (req,res) {
+        if (req.session.usuarioLogueado == undefined) {
             res.redirect("/");
         }
         let id = req.params.id;
         db.Producto.findByPk(id)
-        .then(function(producto){
-            res.render('editarProducto', {producto:producto, tittle: 'Editar producto'})
+        .then(function (producto) {
+            res.render('editarProducto', {producto: producto, title: 'Editar producto'})
         })
     },
-    editarConfirm: function (req,res){
-        if(req.session.usuario_id == req.session.id){
+
+    editarConfirm: function (req,res) {
+        if (req.session.usuarioLogueado == undefined) {
             res.redirect("/");
         }
+
         let id = req.params.id;
-        db.Producrto.update(req.body,{
-            where:{
-                id:id
-            }
-        })
-        .them(function(output){
+        db.Producto.update(req.body,
+            {
+                where: {
+                    id:id
+                }
+            })
+        .then(function (output) {
             res.redirect('/productos/misProductos')
         })
     },
-    borrarProducto: function (req,res){
-        if(req.session.usuarioLogueado == undefined){
-            res.redirect("/")
+
+    borrarProducto: function (req,res) {
+        if (req.session.usuarioLogueado == undefined) {
+            res.redirect("/");
         }
         let id = req.params.id;
         db.Producto.findByPk(id)
-        .then(function (producto){
-            res.render('borrarProducto', {producto: produto, title: 'Borrar producto'})
-        })
+            .then(function (producto) {
+                res.render('borrarProducto', { producto: producto, title: 'Borrar producto' })
+            })
     },
-    borrarConfirm: function (req,res){
-        if(req.session.usuarioLogueado == undefined){
-            res.redirect("/")
+
+    borrarConfirm: function (req,res) {
+        if (req.session.usuarioLogueado == undefined) {
+            res.redirect("/");
         }
         let id = req.params.id;
         db.Producto.destroy({
-            where:{
-                id:id
+            where: {
+                id: id
             }
         })
-        .then(function (otuput){
-            re.redirect('/productos/misProductos')
+        .then(function (otuput) {
+            res.redirect('/productos/misProductos')
         })
     }
 }
